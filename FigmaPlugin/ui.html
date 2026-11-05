@@ -1,0 +1,47 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  :root { color-scheme: light dark; }
+  body { font: 12px Inter, system-ui, sans-serif; margin: 0; padding: 12px; color: var(--figma-color-text, #222); }
+  button { width: 100%; height: 36px; border: 0; border-radius: 6px; font: inherit; font-weight: 600; cursor: pointer;
+           background: var(--figma-color-bg-brand, #0d99ff); color: #fff; }
+  button:disabled { opacity: .5; cursor: default; }
+  #drop { display: block; margin-top: 8px; padding: 12px; text-align: center; border: 1px dashed var(--figma-color-border, #bbb); border-radius: 6px; cursor: pointer; }
+  #drop.over { border-color: var(--figma-color-bg-brand, #0d99ff); }
+  input { display: none; }
+  #status { margin: 10px 0 0; min-height: 32px; line-height: 16px; color: var(--figma-color-text-secondary, #666); }
+</style>
+<button id="capture">Capture screen</button>
+<label id="drop">Or drop a capture file<input id="file" type="file" accept=".json,application/json"></label>
+<p id="status">Open the screen in the Simulator, then press Capture.</p>
+<script>
+  const status = (text) => { document.getElementById('status').textContent = text; };
+  const button = document.getElementById('capture');
+  const send = (text) => {
+    let capture;
+    try { capture = JSON.parse(text); } catch (e) { status("That isn't a capture file."); button.disabled = false; return; }
+    if (!capture.root) { status("That isn't a capture file."); button.disabled = false; return; }
+    status('Building layers…');
+    parent.postMessage({ pluginMessage: { type: 'import', capture } }, '*');
+  };
+  button.onclick = async () => {
+    button.disabled = true;
+    status('Reading the screen…');
+    try {
+      const response = await fetch('http://localhost:8765/capture');
+      send(await response.text());
+    } catch (e) {
+      status("Can't reach the app. Is it open in the Simulator, in a debug build with FigmaCapture.start()?");
+      button.disabled = false;
+    }
+  };
+  const drop = document.getElementById('drop');
+  document.getElementById('file').onchange = async (e) => { if (e.target.files[0]) send(await e.target.files[0].text()); };
+  drop.ondragover = (e) => { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = async (e) => { e.preventDefault(); drop.classList.remove('over'); if (e.dataTransfer.files[0]) send(await e.dataTransfer.files[0].text()); };
+  onmessage = (e) => {
+    const message = e.data.pluginMessage;
+    if (message && message.type === 'done') { status(message.text); button.disabled = false; }
+  };
+</script>

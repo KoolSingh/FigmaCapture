@@ -1,0 +1,6 @@
+.DS_Store
+.build/
+.swiftpm/
+*.xcuserstate
+# Captures hold pictures of an app's screen.
+*capture*.json
